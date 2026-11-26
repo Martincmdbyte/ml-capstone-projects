@@ -1,0 +1,39 @@
+name: Validate hospital readmission study
+on:
+  push:
+    branches: [validate-health-ece-studies]
+    paths: ['projects/hospital_readmission_reliability/**', '.github/workflows/validate-readmission.yml']
+permissions:
+  contents: read
+jobs:
+  readmission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: projects/hospital_readmission_reliability
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download original UCI dataset and install dependencies
+        run: |
+          curl -fLsS --retry 3 'https://archive.ics.uci.edu/static/public/296/diabetes+130-us+hospitals+for+years+1999-2008.zip' -o /tmp/diabetes.zip
+          unzip -q /tmp/diabetes.zip -d data
+          python -m pip install -q -r requirements.txt
+      - name: Evaluate and check a prediction
+        run: |
+          python study.py
+          python predict.py example_encounter.csv
+      - name: Capture aggregate evaluation
+        run: |
+          rm outputs/predictions.csv
+          python - <<'PY'
+          from pathlib import Path
+          from base64 import b64encode
+          for path in sorted(Path('outputs').glob('*.csv')) + sorted(Path('outputs').glob('*.png')):
+              encoded = b64encode(path.read_bytes()).decode('ascii')
+              for i in range(0, len(encoded), 3000):
+                  print(f'RESULT|{path.name}|{i // 3000}|{encoded[i:i+3000]}')
+          PY
