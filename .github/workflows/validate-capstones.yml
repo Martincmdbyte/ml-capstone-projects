@@ -1,0 +1,17 @@
+name: Check capstone experiment runner
+on:
+  push:
+    branches: [validate-health-ece-studies]
+    paths: [.github/workflows/validate-capstones.yml]
+permissions:
+  contents: read
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify Python and public dataset access
+        run: |
+          python --version
+          curl -fLsS --max-time 60 'https://archive.ics.uci.edu/static/public/296/diabetes+130-us+hospitals+for+years+1999-2008.zip' -o "${RUNNER_TEMP}/diabetes.zip"
+          unzip -t "${RUNNER_TEMP}/diabetes.zip"
