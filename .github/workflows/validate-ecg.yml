@@ -1,0 +1,48 @@
+name: Validate PTB-XL ECG lead comparison
+on:
+  push:
+    branches: [validate-health-ece-studies]
+    paths: ['projects/ptbxl_ecg_leads/**', '.github/workflows/validate-ecg.yml']
+permissions:
+  contents: read
+jobs:
+  ecg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: projects/ptbxl_ecg_leads
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download official PTB-XL and install dependencies
+        run: |
+          curl -fLsS --retry 3 --max-time 600 'https://physionet.org/content/ptb-xl/get-zip/1.0.3/' -o /tmp/ptb-xl.zip
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          with ZipFile('/tmp/ptb-xl.zip') as source:
+              useful = [name for name in source.namelist()
+                        if '/records100/' in '/' + name or Path(name).name in {'ptbxl_database.csv', 'scp_statements.csv'}]
+              assert len(useful) > 40000
+              source.extractall('data', useful)
+          PY
+          python -m pip install -q -r requirements.txt
+      - name: Evaluate both lead configurations
+        run: |
+          root="$(dirname "$(find data -type f -name ptbxl_database.csv -print -quit)")"
+          python study.py --data "$root"
+          record="$(find "$root/records100" -name '*.hea' -print -quit)"
+          python predict.py "$record"
+      - name: Capture aggregate evaluation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from base64 import b64encode
+          for path in sorted(Path('outputs').glob('*.csv')) + sorted(Path('outputs').glob('*.png')):
+              encoded = b64encode(path.read_bytes()).decode('ascii')
+              for i in range(0, len(encoded), 3000):
+                  print(f'RESULT|{path.name}|{i // 3000}|{encoded[i:i+3000]}')
+          PY
