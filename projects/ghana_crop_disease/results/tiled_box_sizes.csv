@@ -1,0 +1,3 @@
+size,test_boxes,localized,correct_class,localization_recall,class_correct_recall
+Small disease boxes,3951,713,614,0.18046064287522146,0.155403695267021
+Other disease boxes,3401,413,290,0.12143487209644223,0.08526903851808292
